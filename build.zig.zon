@@ -1,0 +1,10 @@
+.{
+    .name = "rethinkdb",
+    .version = "0.0.1",
+    .dependencies = .{
+        .scram = .{
+	    .url = "https://github.com/nefixestrada/zig-scram/archive/refs/tags/v0.0.1.tar.gz",
+	    .hash = "122038ff3390243221e5eeafb08c2856e0d1be3748e17b0d6abf5633e3579d7a3a74",
+	},
+    },
+}
