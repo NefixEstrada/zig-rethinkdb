@@ -1,15 +1,18 @@
 const std = @import("std");
 const scram = @import("scram");
 const ql2 = @import("ql2/ql2.pb.zig");
+const proto = @import("proto.zig");
 
 const HandshakeError = error{
     HandshakeVersionsError,
     ReqlAuthError,
 } || std.mem.Allocator.Error || std.net.Stream.ReadError || std.net.Stream.WriteError || error{ EndOfStream, StreamTooLong } || std.json.ParseError(std.json.Scanner);
 
+// TODO: Lock the connection when is in use
 pub const Connection = struct {
     alloc: std.mem.Allocator,
     conn: std.net.Stream,
+    token: std.atomic.Atomic(u64) = std.atomic.Atomic(u64).init(0),
 
     pub fn connect(alloc: std.mem.Allocator, conn_opts: ConnectionOptions) !Connection {
         var conn = try std.net.tcpConnectToHost(alloc, conn_opts.host, conn_opts.port);
@@ -95,6 +98,17 @@ pub const Connection = struct {
 
     pub fn close(self: Connection) void {
         self.conn.close();
+    }
+
+    pub fn run(self: *Connection, query: proto.Query) !void {
+        const token = self.token.fetchAdd(1, .Monotonic);
+        const query_serialized = try std.json.stringifyAlloc(self.alloc, query, .{});
+        defer self.alloc.free(query_serialized);
+
+        const writer = self.conn.writer();
+        try writer.writeIntLittle(u64, token);
+        try writer.writeIntLittle(u32, @as(u32, @intCast(query_serialized.len)));
+        try writer.writeAll(query_serialized);
     }
 };
 
